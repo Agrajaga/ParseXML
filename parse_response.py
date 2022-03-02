@@ -111,8 +111,40 @@ def get_distinctions(response1: dict, response2: dict) -> tuple:
     return (options1, options2)
 
 
+def get_optimal(
+                variants: list,
+                cost_weight: float = 0.5,
+                time_weight: float = 0.5) -> dict:
+    cost_sum, time_sum = 0, 0
+    for variant in variants:
+        cost_sum += variant["total_cost"]
+        time_sum += variant["total_seconds"]
+    return sorted(
+                variants,
+                key=lambda v:
+                (v["total_seconds"] / time_sum) * time_weight +
+                (v["total_cost"] / cost_sum) * cost_weight
+            )[0]
+
+
 if __name__ == "__main__":
     response1 = parse_response("RS_Via-3.xml")
     response2 = parse_response("RS_ViaOW.xml")
 
     print(get_distinctions(response1, response2))
+    variants = response1["variants"]
+
+    print("Дешевый/дорогой\n")
+    variants.sort(key=lambda v: v["total_cost"])
+    print(variants[0])
+    print()
+    print(variants[-1])
+
+    print("\nБыстрый/медленный\n")
+    variants.sort(key=lambda v: v["total_seconds"])
+    print(variants[0])
+    print()
+    print(variants[-1])
+
+    print("\nОптимальный\n")
+    print(get_optimal(variants, cost_weight=0.5, time_weight=0.5))
