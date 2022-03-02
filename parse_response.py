@@ -25,9 +25,14 @@ def get_fare(variant: ET.Element, type: str) -> float:
     return float(service_charge.text)
 
 
+def get_passengers_counts(fare_basis: str) -> tuple[int, int, int]:
+    counts_str = fare_basis.split("__A")[1]
+    return tuple(map(int, counts_str.split("_")))
+
+
 def calc_total_cost(variant: ET.Element) -> float:
-    counts_str = get_fare_basis(variant).split("__A")[1]
-    adult_count, child_count, infant_count = map(int, counts_str.split("_"))
+    fare_basis = get_fare_basis(variant)
+    adult_count, child_count, infant_count = get_passengers_counts(fare_basis)
 
     adult_cost = get_fare(variant, "SingleAdult") * adult_count
     child_cost = get_fare(variant, "SingleChild") * child_count
@@ -55,7 +60,7 @@ def calc_total_time(variant: ET.Element) -> int:
     return onward_time + return_time
 
 
-def get_variants(filename: str) -> list:
+def parse_response(filename: str) -> dict:
     tree = ET.parse(filename)
     root = tree.getroot()
 
@@ -64,7 +69,8 @@ def get_variants(filename: str) -> list:
         variant_desc = {}
         flight_desc = {}
 
-        variant_desc["FareBasis"] = get_fare_basis(variant)
+        fare_basis = get_fare_basis(variant)
+        variant_desc["FareBasis"] = fare_basis
 
         flight_desc["onward"] = []
         for flight in variant.findall("OnwardPricedItinerary/Flights/Flight"):
@@ -78,10 +84,35 @@ def get_variants(filename: str) -> list:
         variant_desc["total_cost"] = calc_total_cost(variant)
         variant_desc["total_seconds"] = calc_total_time(variant)
 
+        options = {}
+        options["filename"] = filename
+        options["roundtrip"] = bool(flight_desc["return"])
+        passengers_counts = get_passengers_counts(fare_basis)
+        options["adults"] = passengers_counts[0]
+        options["childs"] = passengers_counts[1]
+        options["infants"] = passengers_counts[2]
+
         variants.append(variant_desc)
-    return variants
+
+    return {
+        "options": options,
+        "variants": variants,
+        }
+
+
+def get_distinctions(response1: dict, response2: dict) -> tuple:
+    options1 = {}
+    options2 = {}
+    for option in response1["options"]:
+        if response1["options"][option] != response2["options"][option]:
+            options1[option] = response1["options"][option]
+            options2[option] = response2["options"][option]
+
+    return (options1, options2)
 
 
 if __name__ == "__main__":
-    variants = get_variants("RS_Via-3.xml")
-    print(*[(v["FareBasis"], v["total_cost"], v["total_seconds"]) for v in variants], sep="\n")
+    response1 = parse_response("RS_Via-3.xml")
+    response2 = parse_response("RS_ViaOW.xml")
+
+    print(get_distinctions(response1, response2))
