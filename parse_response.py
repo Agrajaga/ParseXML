@@ -1,3 +1,4 @@
+from datetime import datetime
 from xml.etree import cElementTree as ET
 
 
@@ -34,6 +35,26 @@ def calc_total_cost(variant: ET.Element) -> float:
     return (adult_cost * 100 + child_cost * 100 + infant_cost * 100) / 100
 
 
+def calc_flight_time(variant: ET.Element, branch_name: str) -> int:
+    departure_ts = variant.find(
+        f"./{branch_name}//Flight[1]/DepartureTimeStamp")
+    arrival_ts = variant.find(
+        f"./{branch_name}//Flight[last()]/ArrivalTimeStamp")
+    if departure_ts is None or arrival_ts is None:
+        return 0
+
+    dt_format = "%Y-%m-%dT%H%M"
+    departure = datetime.strptime(departure_ts.text, dt_format)
+    arrival = datetime.strptime(arrival_ts.text, dt_format)
+    return int((arrival - departure).total_seconds())
+
+
+def calc_total_time(variant: ET.Element) -> int:
+    onward_time = calc_flight_time(variant, "OnwardPricedItinerary")
+    return_time = calc_flight_time(variant, "ReturnPricedItinerary")
+    return onward_time + return_time
+
+
 if __name__ == "__main__":
     tree = ET.parse("RS_ViaOW.xml")
     root = tree.getroot()
@@ -55,7 +76,8 @@ if __name__ == "__main__":
 
         variant_desc["flight"] = flight_desc
         variant_desc["total_cost"] = calc_total_cost(variant)
+        variant_desc["total_seconds"] = calc_total_time(variant)
 
         variants.append(variant_desc)
 
-    print(*[(v["FareBasis"], v["total_cost"]) for v in variants], sep="\n")
+    print(*[(v["FareBasis"], v["total_cost"], v["total_seconds"]) for v in variants], sep="\n")
