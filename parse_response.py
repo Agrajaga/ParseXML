@@ -55,8 +55,8 @@ def calc_total_time(variant: ET.Element) -> int:
     return onward_time + return_time
 
 
-if __name__ == "__main__":
-    tree = ET.parse("RS_ViaOW.xml")
+def get_variants(filename: str) -> list:
+    tree = ET.parse(filename)
     root = tree.getroot()
 
     variants = []
@@ -79,5 +79,9 @@ if __name__ == "__main__":
         variant_desc["total_seconds"] = calc_total_time(variant)
 
         variants.append(variant_desc)
+    return variants
 
+
+if __name__ == "__main__":
+    variants = get_variants("RS_Via-3.xml")
     print(*[(v["FareBasis"], v["total_cost"], v["total_seconds"]) for v in variants], sep="\n")
