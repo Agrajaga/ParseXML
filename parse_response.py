@@ -11,8 +11,34 @@ def descript_flight(flight: ET.Element) -> dict:
     return flight_desc
 
 
+def get_fare_basis(variant: ET.Element) -> str:
+    return variant.find(
+        "OnwardPricedItinerary/Flights/Flight/FareBasis").text.strip()
+
+
+def get_fare(variant: ET.Element, type: str) -> float:
+    xpath = f".//ServiceCharges[@type='{type}'][@ChargeType='TotalAmount']"
+    service_charge = variant.find(xpath)
+    if service_charge is None:
+        return 0.0
+    return float(service_charge.text)
+
+
+def calc_total_cost(variant: ET.Element) -> float:
+    counts_str = get_fare_basis(variant).split("__A")[1]
+    adult_count, child_count, infant_count = map(int, counts_str.split("_"))
+
+    adult_price = get_fare(variant, "SingleAdult")
+    child_price = get_fare(variant, "SingleChild")
+    infant_price = get_fare(variant, "SingleInfant")
+
+    return adult_count * adult_price + \
+        child_count * child_price + \
+        infant_count * infant_price
+
+
 if __name__ == "__main__":
-    tree = ET.parse("RS_Via-3.xml")
+    tree = ET.parse("RS_ViaOW.xml")
     root = tree.getroot()
 
     variants = []
@@ -20,17 +46,19 @@ if __name__ == "__main__":
         variant_desc = {}
         flight_desc = {}
 
-        variant_desc["FareBasis"] = variant.find(
-            "OnwardPricedItinerary/Flights/Flight/FareBasis").text
+        variant_desc["FareBasis"] = get_fare_basis(variant)
 
-        variant_desc["onward"] = []
+        flight_desc["onward"] = []
         for flight in variant.findall("OnwardPricedItinerary/Flights/Flight"):
-            variant_desc["onward"].append(descript_flight(flight))
+            flight_desc["onward"].append(descript_flight(flight))
 
-        variant_desc["return"] = []
+        flight_desc["return"] = []
         for flight in variant.findall("ReturnPricedItinerary/Flights/Flight"):
-            variant_desc["return"].append(descript_flight(flight))
+            flight_desc["return"].append(descript_flight(flight))
+
+        variant_desc["flight"] = flight_desc
+        variant_desc["total_cost"] = calc_total_cost(variant)
 
         variants.append(variant_desc)
 
-    print(variants)
+    print(*[(v["FareBasis"], v["total_cost"]) for v in variants], sep="\n")
