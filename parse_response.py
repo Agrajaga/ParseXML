@@ -28,13 +28,10 @@ def calc_total_cost(variant: ET.Element) -> float:
     counts_str = get_fare_basis(variant).split("__A")[1]
     adult_count, child_count, infant_count = map(int, counts_str.split("_"))
 
-    adult_price = get_fare(variant, "SingleAdult")
-    child_price = get_fare(variant, "SingleChild")
-    infant_price = get_fare(variant, "SingleInfant")
-
-    return adult_count * adult_price + \
-        child_count * child_price + \
-        infant_count * infant_price
+    adult_cost = get_fare(variant, "SingleAdult") * adult_count
+    child_cost = get_fare(variant, "SingleChild") * child_count
+    infant_cost = get_fare(variant, "SingleInfant") * infant_count
+    return (adult_cost * 100 + child_cost * 100 + infant_cost * 100) / 100
 
 
 if __name__ == "__main__":
