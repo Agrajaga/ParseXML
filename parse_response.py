@@ -1,3 +1,5 @@
+import argparse
+import json
 from datetime import datetime
 from xml.etree import cElementTree as ET
 
@@ -97,7 +99,7 @@ def parse_response(filename: str) -> dict:
     return {
         "options": options,
         "variants": variants,
-        }
+    }
 
 
 def get_distinctions(response1: dict, response2: dict) -> tuple:
@@ -112,39 +114,76 @@ def get_distinctions(response1: dict, response2: dict) -> tuple:
 
 
 def get_optimal(
-                variants: list,
-                cost_weight: float = 0.5,
-                time_weight: float = 0.5) -> dict:
+        variants: list,
+        cost_weight: float = 0.5,
+        time_weight: float = 0.5) -> dict:
     cost_sum, time_sum = 0, 0
     for variant in variants:
         cost_sum += variant["total_cost"]
         time_sum += variant["total_seconds"]
     return sorted(
-                variants,
-                key=lambda v:
-                (v["total_seconds"] / time_sum) * time_weight +
-                (v["total_cost"] / cost_sum) * cost_weight
-            )[0]
+        variants,
+        key=lambda v:
+        (v["total_seconds"] / time_sum) * time_weight +
+        (v["total_cost"] / cost_sum) * cost_weight
+    )[0]
+
+
+def get_all_variants(filename: str) -> list:
+    flights = []
+    response = parse_response(filename)
+    for variant in response["variants"]:
+        flights.append(variant["flight"])
+    return flights
+
+
+def get_best_variants(filename: str) -> dict:
+    flights = {}
+    variants = parse_response(filename)["variants"]
+    variants.sort(key=lambda v: v["total_cost"])
+    flights["cheapest"] = variants[0].copy()
+    flights["expensive"] = variants[-1].copy()
+    variants.sort(key=lambda v: v["total_seconds"])
+    flights["fastest"] = variants[0].copy()
+    flights["slowest"] = variants[-1].copy()
+    flights["optimal"] = get_optimal(variants)
+    return flights
 
 
 if __name__ == "__main__":
-    response1 = parse_response("RS_Via-3.xml")
-    response2 = parse_response("RS_ViaOW.xml")
+    parser = argparse.ArgumentParser(
+        description="Parse XML response from via.com and return JSON")
+    parser.add_argument("file1", help="XML response from via.com")
+    parser.add_argument(
+        "--hr",
+        action="store_true",
+        help="human-readable output")
+    group = parser.add_mutually_exclusive_group(required=True)
 
-    print(get_distinctions(response1, response2))
-    variants = response1["variants"]
+    group.add_argument(
+        "--all",
+        action="store_true",
+        help="return all flight variants")
+    group.add_argument(
+        "--best",
+        action="store_true",
+        help="return cheapest/expensive, fastest/slowest and optimal variants")
+    group.add_argument(
+        "--compare",
+        nargs=1,
+        metavar="file2",
+        help="returns differences in query parameters")
+    args = parser.parse_args()
 
-    print("Дешевый/дорогой\n")
-    variants.sort(key=lambda v: v["total_cost"])
-    print(variants[0])
-    print()
-    print(variants[-1])
-
-    print("\nБыстрый/медленный\n")
-    variants.sort(key=lambda v: v["total_seconds"])
-    print(variants[0])
-    print()
-    print(variants[-1])
-
-    print("\nОптимальный\n")
-    print(get_optimal(variants, cost_weight=0.5, time_weight=0.5))
+    indent = None
+    if args.hr:
+        indent = " "
+    if args.all:
+        print(json.dumps(get_all_variants(args.file1), indent=indent))
+    if args.best:
+        print(json.dumps(get_best_variants(args.file1), indent=indent))
+    if args.compare:
+        response1 = parse_response(args.file1)
+        response2 = parse_response(args.compare[0])
+        distinctions = get_distinctions(response1, response2)
+        print(json.dumps(distinctions, indent=indent))
