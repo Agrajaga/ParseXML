@@ -198,7 +198,7 @@ if __name__ == "__main__":
         "--compare",
         nargs=1,
         metavar="file2",
-        help="returns differences in query parameters")
+        help="return differences in query parameters")
     args = parser.parse_args()
 
     indent = " " if args.human else None
